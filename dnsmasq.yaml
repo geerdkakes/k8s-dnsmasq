@@ -1,0 +1,96 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: dnsmasq
+  name: dnsmasq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dnsmasq
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: dnsmasq
+    spec:
+      containers:
+      - image: geerd/dnsmasq:1.0.0
+        imagePullPolicy: IfNotPresent
+        name: dnsmasq
+        ports:
+        - name: dns-tcp
+          protocol: TCP
+          containerPort: 53
+        - name: dns-udp
+          protocol: UDP
+          containerPort: 53
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 200m
+            memory: 200Mi
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/dnsmasq
+      volumes:
+        - name: config-volume
+          configMap:
+            name: dnsmasq-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dnsmasq
+  name: dnsmasq
+spec:
+  ports:
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: dns-udp
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  selector:
+    app: dnsmasq
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dnsmasq
+  name: dnsmasq-nodeports
+spec:
+  ports:
+  - name: dns-tcp
+    protocol: TCP
+    port: 53
+  - name: dns-udp
+    protocol: UDP
+    port: 53
+  selector:
+    app: dnsmasq
+  sessionAffinity: None
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: dnsmasq-nodeports-53
+spec:
+  backend:
+    serviceName: dnsmasq-nodeports
+    servicePort: 53
